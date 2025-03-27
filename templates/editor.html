@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Math Editor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
+    <style>
+        #editor {
+            border: 1px solid #ccc;
+            min-height: 300px;
+            padding: 20px;
+            margin: 20px;
+            font-family: Arial, sans-serif;
+        }
+        #editor div {
+            min-height: 24px;
+            padding: 2px 0;
+        }
+        .mq-editable-field {
+            display: inline-block;
+        }
+        .toolbar button {
+            margin-right: 10px;
+            padding: 8px 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button onclick="addFormula()">Add Formula</button>
+        <button onclick="downloadDocument()">Download</button>
+        <input type="file" id="fileUpload" accept=".json" onchange="uploadDocument(event)">
+    </div>
+    <div id="editor" contenteditable="true">
+        <div></div>
+        <div></div>
+    </div>
+
+    <script>
+        const MQ = MathQuill.getInterface(2);
+        
+        function maintainEmptyLines() {
+            const editor = document.getElementById('editor');
+            // Always keep 2 empty divs at the end
+            while (editor.children.length < 2 || 
+                   editor.lastElementChild.textContent !== '' || 
+                   editor.children[editor.children.length-2].textContent !== '') {
+                const div = document.createElement('div');
+                editor.appendChild(div);
+            }
+        }
+
+        function addFormula() {
+            const editor = document.getElementById('editor');
+            // Create new line before last 2 empty divs
+            const newLine = document.createElement('div');
+            const span = document.createElement('span');
+            newLine.appendChild(span);
+            
+            if (editor.children.length >= 2) {
+                editor.insertBefore(newLine, editor.children[editor.children.length - 2]);
+            } else {
+                editor.insertBefore(newLine, editor.lastElementChild);
+            }
+            
+            const mq = MQ.MathField(span, {
+                handlers: {
+                    enter: () => evaluateFormula(mq)
+                }
+            });
+            mq.focus();
+            maintainEmptyLines();
+        }
+
+        function downloadDocument() {
+            const content = [];
+            $('#editor > div').each(function() {
+                const line = [];
+                $(this).contents().each(function() {
+                    if ($(this).hasClass('mq-editable-field')) {
+                        line.push({
+                            type: 'math',
+                            latex: MQ($(this)).latex()
+                        });
+                    } else if (this.nodeType === 3) {
+                        line.push({
+                            type: 'text',
+                            content: this.textContent
+                        });
+                    }
+                });
+                content.push(line);
+            });
+            
+            // Remove trailing empty lines (keep at least 2)
+            while (content.length > 2 && 
+                   content[content.length-1].length === 0 && 
+                   content[content.length-2].length === 0) {
+                content.pop();
+            }
+
+            fetch('/download', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(content)
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'document.json';
+                a.click();
+            });
+        }
+
+        function uploadDocument(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const content = JSON.parse(e.target.result);
+                const editor = $('#editor').empty();
+                
+                content.forEach(line => {
+                    const div = $('<div>').appendTo(editor);
+                    line.forEach(item => {
+                        if (item.type === 'math') {
+                            const span = $('<span>').appendTo(div);
+                            MQ.MathField(span[0]).latex(item.latex);
+                        } else {
+                            div.append(document.createTextNode(item.content));
+                        }
+                    });
+                });
+
+                maintainEmptyLines();
+            };
+            reader.readAsText(file);
+        }
+
+        function evaluateFormula(mq) {
+            fetch('/evaluate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ latex: mq.latex() })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.result) {
+                    mq.latex(`\\boxed{${data.result}}`);
+                }
+            });
+        }
+
+        // Initialize empty lines
+        maintainEmptyLines();
+        
+        // Handle keyboard events to maintain empty lines
+        document.getElementById('editor').addEventListener('input', maintainEmptyLines);
+        document.getElementById('editor').addEventListener('keydown', maintainEmptyLines);
+    </script>
+</body>
+</html>
