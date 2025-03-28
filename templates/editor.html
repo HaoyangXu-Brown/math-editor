@@ -181,22 +181,18 @@
             const codeBlock = document.createElement('div');
             codeBlock.className = 'code-block';
             
-            // Header
             const header = document.createElement('div');
             header.className = 'code-header';
             header.innerHTML = '<span>Python Code</span>';
             
-            // Run button
             const runButton = document.createElement('button');
             runButton.textContent = 'Run';
             runButton.onclick = () => executeCode(codeBlock);
             header.appendChild(runButton);
             
-            // Editor container
             const editorContainer = document.createElement('div');
             editorContainer.className = 'code-editor-container';
             
-            // CodeMirror instance
             const codeMirror = CodeMirror(editorContainer, {
                 lineNumbers: true,
                 mode: 'python',
@@ -207,17 +203,14 @@
                 extraKeys: {'Ctrl-Enter': () => executeCode(codeBlock)}
             });
             
-            // Output area
             const outputDiv = document.createElement('div');
             outputDiv.className = 'code-output';
             
-            // Assemble components
             codeBlock.appendChild(header);
             codeBlock.appendChild(editorContainer);
             codeBlock.appendChild(outputDiv);
             editor.appendChild(codeBlock);
             
-            // Refresh CodeMirror to calculate proper layout
             setTimeout(() => codeMirror.refresh(), 0);
             codeMirror.focus();
         }
@@ -244,24 +237,26 @@
             const content = [];
             $('#editor').children().each(function() {
                 const element = $(this);
+                let item = null;
                 
                 if (element.find('.mq-editable-field').length > 0) {
-                    content.push({
+                    item = {
                         type: 'math',
                         latex: MQ(element.find('.mq-editable-field')[0]).latex()
-                    });
+                    };
                 } else if (element.hasClass('code-block')) {
-                    content.push({
+                    item = {
                         type: 'code',
                         code: element.find('.CodeMirror')[0].CodeMirror.getValue(),
                         output: element.find('.code-output').text()
-                    });
+                    };
                 } else {
-                    content.push({
+                    item = {
                         type: 'text',
                         content: element.text()
-                    });
+                    };
                 }
+                content.push(item);
             });
 
             fetch('/download', {
@@ -300,22 +295,18 @@
                         const codeBlock = document.createElement('div');
                         codeBlock.className = 'code-block';
                         
-                        // Header
                         const header = document.createElement('div');
                         header.className = 'code-header';
                         header.innerHTML = '<span>Python Code</span>';
                         
-                        // Run button
                         const runButton = document.createElement('button');
                         runButton.textContent = 'Run';
                         runButton.onclick = () => executeCode(codeBlock);
                         header.appendChild(runButton);
                         
-                        // Editor container
                         const editorContainer = document.createElement('div');
                         editorContainer.className = 'code-editor-container';
                         
-                        // CodeMirror instance
                         const codeMirror = CodeMirror(editorContainer, {
                             lineNumbers: true,
                             mode: 'python',
@@ -325,7 +316,6 @@
                             viewportMargin: Infinity
                         });
                         
-                        // Output area
                         const outputDiv = document.createElement('div');
                         outputDiv.className = 'code-output';
                         outputDiv.textContent = item.output;
@@ -342,10 +332,12 @@
                     }
                 });
                 
-                // Refresh all CodeMirror instances
                 setTimeout(() => {
-                    document.querySelectorAll('.CodeMirror').forEach(cm => cm.CodeMirror.refresh());
-                }, 50);
+                    document.querySelectorAll('.CodeMirror').forEach(cm => {
+                        cm.CodeMirror.refresh();
+                        cm.CodeMirror.focus();
+                    });
+                }, 100);
             };
             reader.readAsText(file);
         }
