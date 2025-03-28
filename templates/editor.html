@@ -1,104 +1,268 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Math Editor</title>
+    <title>Math & Code Editor</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.63.3/codemirror.min.css">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.63.3/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.63.3/mode/python/python.min.js"></script>
     <style>
-        #editor {
-            border: 1px solid #ccc;
-            min-height: 300px;
-            padding: 20px;
-            margin: 20px;
-            font-family: Arial, sans-serif;
+        :root {
+            --primary-color: #2b303b;
+            --secondary-color: #1a1d24;
+            --accent-color: #00bcd4;
+            --text-color: #ffffff;
+            --code-bg: #1e222a;
         }
-        #editor div {
+
+        body {
+            background-color: var(--primary-color);
+            color: var(--text-color);
+            margin: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        .toolbar {
+            background-color: var(--secondary-color);
+            padding: 1rem;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        #editor {
+            background-color: var(--secondary-color);
+            min-height: calc(100vh - 120px);
+            padding: 2rem;
+            margin: 1rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+            caret-color: white;
+            font-size: 16px;
+        }
+
+        .mq-editable-field {
+            background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+            padding: 0.2rem 0.5rem;
+            margin: 0.2rem;
+        }
+
+        .code-block {
+            background: var(--code-bg);
+            border-radius: 6px;
+            margin: 1rem 0;
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .code-output {
+            padding: 1rem;
+            font-family: monospace;
+            white-space: pre-wrap;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .CodeMirror {
+            height: auto;
+            background: var(--code-bg);
+            color: var(--text-color);
+            border-radius: 0 0 6px 6px;
+            font-family: 'Fira Code', monospace;
+            padding-left: 50px !important;
+        }
+
+        .CodeMirror-gutters {
+            background: var(--code-bg) !important;
+            border-right: 1px solid rgba(255,255,255,0.1) !important;
+            width: 45px !important;
+        }
+
+        .CodeMirror-linenumber {
+            color: rgba(255,255,255,0.5) !important;
+            padding: 0 8px !important;
+        }
+
+        .text-line {
             min-height: 24px;
             padding: 2px 0;
         }
-        .mq-editable-field {
-            display: inline-block;
+
+        .font-size-control {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
-        .toolbar button {
-            margin-right: 10px;
-            padding: 8px 15px;
+
+        .code-editor-container {
+            position: relative;
+            overflow: hidden;
         }
     </style>
 </head>
 <body>
     <div class="toolbar">
         <button onclick="addFormula()">Add Formula</button>
+        <button onclick="addText()">Insert Text</button>
+        <button onclick="addCodeBlock()">Insert Code</button>
         <button onclick="downloadDocument()">Download</button>
-        <input type="file" id="fileUpload" accept=".json" onchange="uploadDocument(event)">
+        <input type="file" id="fileUpload" accept=".json" hidden>
+        <button onclick="document.getElementById('fileUpload').click()">Upload</button>
+        <div class="font-size-control">
+            <label for="fontSizeRange">Text Size:</label>
+            <input type="range" id="fontSizeRange" min="12" max="32" value="16" oninput="adjustFontSize(this.value)">
+        </div>
     </div>
-    <div id="editor" contenteditable="true">
-        <div></div>
-        <div></div>
-    </div>
+    <div id="editor" contenteditable="true"></div>
 
     <script>
         const MQ = MathQuill.getInterface(2);
-        
-        function maintainEmptyLines() {
+
+        function adjustFontSize(value) {
+            document.getElementById('editor').style.fontSize = value + 'px';
+            document.querySelectorAll('.CodeMirror').forEach(cm => cm.CodeMirror.refresh());
+        }
+
+        function addText() {
             const editor = document.getElementById('editor');
-            // Always keep 2 empty divs at the end
-            while (editor.children.length < 2 || 
-                   editor.lastElementChild.textContent !== '' || 
-                   editor.children[editor.children.length-2].textContent !== '') {
-                const div = document.createElement('div');
-                editor.appendChild(div);
-            }
+            const textDiv = document.createElement('div');
+            textDiv.className = 'text-line';
+            editor.appendChild(textDiv);
+            const range = document.createRange();
+            const selection = window.getSelection();
+            range.selectNodeContents(textDiv);
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
         }
 
         function addFormula() {
             const editor = document.getElementById('editor');
-            // Create new line before last 2 empty divs
-            const newLine = document.createElement('div');
+            const formulaDiv = document.createElement('div');
             const span = document.createElement('span');
-            newLine.appendChild(span);
-            
-            if (editor.children.length >= 2) {
-                editor.insertBefore(newLine, editor.children[editor.children.length - 2]);
-            } else {
-                editor.insertBefore(newLine, editor.lastElementChild);
-            }
-            
+            formulaDiv.appendChild(span);
+            editor.appendChild(formulaDiv);
             const mq = MQ.MathField(span, {
                 handlers: {
                     enter: () => evaluateFormula(mq)
                 }
             });
             mq.focus();
-            maintainEmptyLines();
+        }
+
+        function addCodeBlock() {
+            const editor = document.getElementById('editor');
+            const codeBlock = document.createElement('div');
+            codeBlock.className = 'code-block';
+            
+            // Header
+            const header = document.createElement('div');
+            header.className = 'code-header';
+            header.innerHTML = '<span>Python Code</span>';
+            
+            // Run button
+            const runButton = document.createElement('button');
+            runButton.textContent = 'Run';
+            runButton.onclick = () => executeCode(codeBlock);
+            header.appendChild(runButton);
+            
+            // Editor container
+            const editorContainer = document.createElement('div');
+            editorContainer.className = 'code-editor-container';
+            
+            // CodeMirror instance
+            const codeMirror = CodeMirror(editorContainer, {
+                lineNumbers: true,
+                mode: 'python',
+                theme: 'default',
+                lineWrapping: true,
+                viewportMargin: Infinity,
+                gutters: ['CodeMirror-linenumbers'],
+                extraKeys: {'Ctrl-Enter': () => executeCode(codeBlock)}
+            });
+            
+            // Output area
+            const outputDiv = document.createElement('div');
+            outputDiv.className = 'code-output';
+            
+            // Assemble components
+            codeBlock.appendChild(header);
+            codeBlock.appendChild(editorContainer);
+            codeBlock.appendChild(outputDiv);
+            editor.appendChild(codeBlock);
+            
+            // Refresh CodeMirror to calculate proper layout
+            setTimeout(() => codeMirror.refresh(), 0);
+            codeMirror.focus();
+        }
+
+        function executeCode(codeBlock) {
+            const codeMirror = codeBlock.querySelector('.CodeMirror').CodeMirror;
+            const outputDiv = codeBlock.querySelector('.code-output');
+            const code = codeMirror.getValue();
+            
+            fetch('/execute', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ code: code })
+            })
+            .then(response => response.json())
+            .then(data => {
+                outputDiv.textContent = data.error ? data.error : data.output;
+                outputDiv.style.color = data.error ? '#ff5555' : '#50fa7b';
+                codeMirror.focus();
+            });
         }
 
         function downloadDocument() {
             const content = [];
-            $('#editor > div').each(function() {
-                const line = [];
-                $(this).contents().each(function() {
-                    if ($(this).hasClass('mq-editable-field')) {
-                        line.push({
-                            type: 'math',
-                            latex: MQ($(this)).latex()
-                        });
-                    } else if (this.nodeType === 3) {
-                        line.push({
-                            type: 'text',
-                            content: this.textContent
-                        });
-                    }
-                });
-                content.push(line);
+            $('#editor').children().each(function() {
+                const element = $(this);
+                
+                if (element.find('.mq-editable-field').length > 0) {
+                    content.push({
+                        type: 'math',
+                        latex: MQ(element.find('.mq-editable-field')[0]).latex()
+                    });
+                } else if (element.hasClass('code-block')) {
+                    content.push({
+                        type: 'code',
+                        code: element.find('.CodeMirror')[0].CodeMirror.getValue(),
+                        output: element.find('.code-output').text()
+                    });
+                } else {
+                    content.push({
+                        type: 'text',
+                        content: element.text()
+                    });
+                }
             });
-            
-            // Remove trailing empty lines (keep at least 2)
-            while (content.length > 2 && 
-                   content[content.length-1].length === 0 && 
-                   content[content.length-2].length === 0) {
-                content.pop();
-            }
 
             fetch('/download', {
                 method: 'POST',
@@ -122,21 +286,66 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 const content = JSON.parse(e.target.result);
-                const editor = $('#editor').empty();
+                const editor = document.getElementById('editor');
+                editor.innerHTML = '';
                 
-                content.forEach(line => {
-                    const div = $('<div>').appendTo(editor);
-                    line.forEach(item => {
-                        if (item.type === 'math') {
-                            const span = $('<span>').appendTo(div);
-                            MQ.MathField(span[0]).latex(item.latex);
-                        } else {
-                            div.append(document.createTextNode(item.content));
-                        }
-                    });
+                content.forEach(item => {
+                    if (item.type === 'math') {
+                        const div = document.createElement('div');
+                        const span = document.createElement('span');
+                        div.appendChild(span);
+                        editor.appendChild(div);
+                        MQ.MathField(span).latex(item.latex);
+                    } else if (item.type === 'code') {
+                        const codeBlock = document.createElement('div');
+                        codeBlock.className = 'code-block';
+                        
+                        // Header
+                        const header = document.createElement('div');
+                        header.className = 'code-header';
+                        header.innerHTML = '<span>Python Code</span>';
+                        
+                        // Run button
+                        const runButton = document.createElement('button');
+                        runButton.textContent = 'Run';
+                        runButton.onclick = () => executeCode(codeBlock);
+                        header.appendChild(runButton);
+                        
+                        // Editor container
+                        const editorContainer = document.createElement('div');
+                        editorContainer.className = 'code-editor-container';
+                        
+                        // CodeMirror instance
+                        const codeMirror = CodeMirror(editorContainer, {
+                            lineNumbers: true,
+                            mode: 'python',
+                            theme: 'default',
+                            value: item.code,
+                            lineWrapping: true,
+                            viewportMargin: Infinity
+                        });
+                        
+                        // Output area
+                        const outputDiv = document.createElement('div');
+                        outputDiv.className = 'code-output';
+                        outputDiv.textContent = item.output;
+                        
+                        codeBlock.appendChild(header);
+                        codeBlock.appendChild(editorContainer);
+                        codeBlock.appendChild(outputDiv);
+                        editor.appendChild(codeBlock);
+                    } else {
+                        const textDiv = document.createElement('div');
+                        textDiv.className = 'text-line';
+                        textDiv.textContent = item.content;
+                        editor.appendChild(textDiv);
+                    }
                 });
-
-                maintainEmptyLines();
+                
+                // Refresh all CodeMirror instances
+                setTimeout(() => {
+                    document.querySelectorAll('.CodeMirror').forEach(cm => cm.CodeMirror.refresh());
+                }, 50);
             };
             reader.readAsText(file);
         }
@@ -154,13 +363,6 @@
                 }
             });
         }
-
-        // Initialize empty lines
-        maintainEmptyLines();
-        
-        // Handle keyboard events to maintain empty lines
-        document.getElementById('editor').addEventListener('input', maintainEmptyLines);
-        document.getElementById('editor').addEventListener('keydown', maintainEmptyLines);
     </script>
 </body>
 </html>
