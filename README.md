@@ -1,55 +1,25 @@
-Here's the updated README.md reflecting the new features:
+# 📐✨ Math & Code Editor 
 
-# Math & Code Editor Web Application
+_A dynamic web editor for beautiful math + executable Python, all in one place! 🚀_
 
-A web-based editor for creating technical documents with mathematical formulas and executable Python code. Designed for students, educators, and developers to create interactive technical content!
+## 🎯 Features
 
-## Features
+- **Write & Evaluate**  
+  📝 Text | 🔢 LaTeX Math | 🐍 Python Code  
+  ➡️ Instant calculations with SymPy  
+  ➡️ Run code with real-time output  
 
-- **Multi-Content Editing**:
-  - Create documents with text, math, and code blocks
-  - Mix formatted content with executable code
-  - Intuitive block management with instant focus
+- **Smart Tools**  
+  🎨 Dark theme with adjustable text size  
+  💾 Save/Load as JSON files  
+  📋 Copy-paste friendly  
 
-- **Mathematical Features**:
-  - LaTeX-based formula editing using MathQuill
-  - In-place formula evaluation using SymPy
-  - Visual boxed results for calculations
-  - Customizable font sizing
+- **Beginner Friendly**  
+  👉 No LaTeX experience needed  
+  👉 One-click formula/code insertion  
+  👉 Auto-syntax highlighting  
 
-- **Code Execution**:
-  - Python code execution with real-time output
-  - Syntax highlighting with CodeMirror
-  - Ctrl+Enter shortcut for quick execution
-  - Colored output (green success/red errors)
-
-- **File Management**:
-  - Save documents as JSON files
-  - Load previously saved documents
-  - Preserves all content types (text/math/code)
-
-- **User Interface**:
-  - Dark theme with technical aesthetic
-  - Responsive toolbar with font size control
-  - Content-editable interface with white cursor
-  - Automatic code block formatting
-
-## Technology Stack
-
-**Frontend**:
-- MathQuill (Formula editing)
-- CodeMirror (Code editing)
-- jQuery (DOM manipulation)
-- HTML5 ContentEditable
-
-**Backend**:
-- Python 3
-- Flask (Web framework)
-- SymPy (Math evaluation)
-- Subprocess (Code execution)
-- JSON (Data serialization)
-
-## Installation
+## 🚀 Quick Start
 
 1. **Prerequisites**:
    - Python 3.6+
@@ -66,67 +36,37 @@ pip install -r requirements.txt
 ```bash
 python app.py
 ```
-Visit `http://localhost:5000` in your browser
 
-## Usage Guide
+🌐 Open `http://localhost:5000` in browser
 
-### Core Operations
-1. **Add Content**:
-   - **Formula**: Click "Add Formula" > Type LaTeX
-   - **Text**: Click "Insert Text" > Start typing
-   - **Code**: Click "Insert Code" > Write Python
+## 💡 Key Combos
 
-2. **Evaluate Content**: (to be fixed)
-   - **Formulas**: Press Enter in formula field
-   - **Code**: Click Run button or Ctrl+Enter
-   - Results appear immediately below content
+| Action                      | Shortcut          |
+|-----------------------------|-------------------|
+| New Formula                 | Click `Add Formula` |
+| Run Python Code             | Click `Run` in code block |
+| Evaluate Math (to be fixed) | Press Enter in formula |
+| Toggle Text Size            | Use slider 📏     |
 
-3. **File Management**: (to be fixed)
-   - **Download**: Click Download to save as .json
-   - **Upload**: Use Upload button to load files
-   - Preserves all formatting and outputs
+## 🛠️ Tech Stack
 
-4. **Customization**:
-   - Adjust font size using slider (12-32px)
-   - Dark theme optimized for long sessions
+**Frontend**:  
+✨ MathQuill (LaTeX) + 💻 CodeMirror (Python) + 🎨 Custom Dark Theme  
 
-### Document Structure
-```json
-[
-  {
-    "type": "math",
-    "latex": "\\sqrt{2}"
-  },
-  {
-    "type": "text",
-    "content": "Sample text"
-  },
-  {
-    "type": "code",
-    "code": "print('Hello World')",
-    "output": "Hello World"
-  }
-]
-```
+**Backend**:  
+🐍 Flask + SymPy (Math) + Python subprocess (Code)  
 
-## Security Notes
-- Code execution runs actual Python interpreter
-- Recommended for local/trusted network use only
-- Add sandboxing for production deployments
+## 🤝 Contribute
 
-## Limitations
-- Basic text formatting only (no bold/italic)
-- No image/table support
-- Limited LaTeX command support
-- Web browser only (no mobile optimization)
-- Code execution timeout at 10 seconds
+Found a bug? 🐛 Have a cool idea? 💡  
+Open an issue or PR! We love:  
+- New syntax highlight themes  
+- Mobile optimizations  
+- Additional LaTeX shortcuts  
 
-## License
-MIT License - Free for educational and personal use
+_License: MIT_ • _Made with ❤️ by SunnyXu_  
 
-## Contribution
-Issues and PRs welcome. Please follow:
-- PEP8 for Python code
-- ESLint for JavaScript
-- Semantic HTML markup
-- CodeMirror extension guidelines
+---
+
+⭐ **Star if useful!** → Help others discover this tool!  
+🔗 **Live Demo**: [Coming Soon]  
