@@ -27,7 +27,7 @@ _A dynamic web editor for beautiful math + executable Python, all in one place! 
 
 2. **Setup**:
 ```bash
-git clone [your-repo-url]
+git clone https://github.com/sunnyhxu/math-editor.git
 cd math-editor
 pip install -r requirements.txt
 ```
@@ -59,10 +59,10 @@ python app.py
 ## 🤝 Contribute
 
 Found a bug? 🐛 Have a cool idea? 💡  
-Open an issue or PR! We love:  
-- New syntax highlight themes  
-- Mobile optimizations  
-- Additional LaTeX shortcuts  
+Open an issue or PR! We love:
+- Easier formula typers
+- Download & upload fix  
+- implementation of LaTeX formula evaluation
 
 _License: MIT_ • _Made with ❤️ by SunnyXu_  
 
