@@ -16,14 +16,16 @@ def index():
 @app.route('/download', methods=['POST'])
 def download():
     try:
-        content = request.json
+        data = request.json
+        filename = f"{data.get('title', 'document')}.json"
+        print(filename)
         file = io.BytesIO()
-        file.write(json.dumps(content).encode('utf-8'))
+        file.write(json.dumps(data).encode('utf-8'))
         file.seek(0)
         return send_file(
             file,
             as_attachment=True,
-            download_name='document.json',
+            download_name=filename,
             mimetype='application/json'
         )
     except Exception as e:
