@@ -1,6 +1,7 @@
 flask
 sympy
-python-dotenv
 matplotlib
 numpy
 pillow
+python-dotenv
+antlr4-python3-runtime==4.11
