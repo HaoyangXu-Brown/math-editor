@@ -124,6 +124,23 @@
             position: relative;
             overflow: hidden;
         }
+
+        .plot-block {
+            margin: 1rem 0;
+            background: var(--code-bg);
+            border-radius: 6px;
+            padding: 1rem;
+        }
+        .plot-image {
+            max-width: 100%;
+            height: auto;
+        }
+        .plot-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
     </style>
 </head>
 <body>
@@ -131,6 +148,7 @@
         <input type="text" id="documentTitle" placeholder="Enter title..." value="document" 
            style="width: 200px; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--accent-color);">
         <button onclick="addFormula()">Add Formula</button>
+        <button onclick="addPlotBlock()">Add Plot</button>
         <button onclick="addText()">Insert Text</button>
         <button onclick="addCodeBlock()">Insert Code</button>
         <button onclick="downloadDocument()">Download</button>
@@ -142,6 +160,10 @@
         </div>
     </div>
     <div id="editor" contenteditable="true"></div>
+    <div id="errorToast" style="position:fixed;bottom:20px;right:20px;background:#ff4444;color:white;padding:16px;border-radius:4px;display:none;max-width:300px;box-shadow:0 2px 5px rgba(0,0,0,0.2)">
+        <span id="errorMessage"></span>
+        <button onclick="hideError()" style="background:none;border:none;color:white;float:right;cursor:pointer">✕</button>
+    </div>
 
     <script>
         const MQ = MathQuill.getInterface(2);
@@ -172,7 +194,9 @@
             editor.appendChild(formulaDiv);
             const mq = MQ.MathField(span, {
                 handlers: {
-                    enter: () => evaluateFormula(mq)
+                    enter: (e) => {
+                        evaluateFormula(mathField);
+                    }
                 }
             });
             mq.focus();
@@ -252,6 +276,12 @@
                         type: 'code',
                         code: element.find('.CodeMirror')[0].CodeMirror.getValue(),
                         output: element.find('.code-output').text()
+                    };
+                } else if (element.hasClass('plot-block')){
+                    item = {
+                        type: 'plot',
+                        latex: element.querySelector('input').value,
+                        image: element.querySelector('.plot-image')?.src
                     };
                 } else {
                     item = {
@@ -336,6 +366,39 @@
                         codeBlock.appendChild(editorContainer);
                         codeBlock.appendChild(outputDiv);
                         editor.appendChild(codeBlock);
+                    } else if (item.type === 'plot') {
+                        const plotBlock = document.createElement('div');
+                        plotBlock.className = 'plot-block';
+                        
+                        const header = document.createElement('div');
+                        header.className = 'plot-header';
+                        
+                        const latexInput = document.createElement('input');
+                        latexInput.type = 'text';
+                        latexInput.placeholder = 'Enter function (e.g., x^2)';
+                        latexInput.style.flexGrow = '1';
+                        latexInput.style.marginRight = '1rem';
+                        latexInput.value = item.latex || '';
+                        
+                        const plotButton = document.createElement('button');
+                        plotButton.textContent = 'Generate Plot';
+                        plotButton.onclick = () => generatePlot(plotBlock);
+                        
+                        const imageContainer = document.createElement('div');
+                        imageContainer.className = 'plot-image-container';
+                        
+                        if (item.image) {
+                            const img = document.createElement('img');
+                            img.className = 'plot-image';
+                            img.src = item.image;
+                            imageContainer.appendChild(img);
+                        }
+                        
+                        header.appendChild(latexInput);
+                        header.appendChild(plotButton);
+                        plotBlock.appendChild(header);
+                        plotBlock.appendChild(imageContainer);
+                        editor.appendChild(plotBlock);
                     } else {
                         const textDiv = document.createElement('div');
                         textDiv.className = 'text-line';
@@ -355,17 +418,95 @@
         }
 
         function evaluateFormula(mq) {
+            const originalLatex = mq.latex();
+            if (!originalLatex) {
+                showError('Formula is empty');
+                return;
+            }
+            let expression = originalLatex;
+            if (!originalLatex.includes('=')) {
+                expression += '=';
+            }
+
             fetch('/evaluate', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ latex: mq.latex() })
+                body: JSON.stringify({ latex: expression })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Server error');
+                else response.json();
+            })
+            .then(data => {
+                if (data.result) {
+                    mq.latex(`${expression} \\boxed{${data.result}}`);
+                } else {
+                    showError(data.error || 'Evaluation failed');
+                }
+            })
+            .catch(error => {
+                showError(error.message || 'Invalid mathematical expression');
+            });
+        }
+
+        function showError(message) {
+            const toast = document.getElementById('errorToast');
+            document.getElementById('errorMessage').textContent = message;
+            toast.style.display = 'block';
+            setTimeout(hideError, 5000);
+        }
+
+        function hideError() {
+            document.getElementById('errorToast').style.display = 'none';
+        }
+
+        function addPlotBlock() {
+            const editor = document.getElementById('editor');
+            const plotBlock = document.createElement('div');
+            plotBlock.className = 'plot-block';
+            
+            const header = document.createElement('div');
+            header.className = 'plot-header';
+            
+            const latexInput = document.createElement('input');
+            latexInput.type = 'text';
+            latexInput.placeholder = 'Enter function (e.g., x^2)';
+            latexInput.style.flexGrow = '1';
+            latexInput.style.marginRight = '1rem';
+            
+            const plotButton = document.createElement('button');
+            plotButton.textContent = 'Generate Plot';
+            plotButton.onclick = () => generatePlot(plotBlock);
+            
+            header.appendChild(latexInput);
+            header.appendChild(plotButton);
+            
+            const imageContainer = document.createElement('div');
+            imageContainer.className = 'plot-image-container';
+            
+            plotBlock.appendChild(header);
+            plotBlock.appendChild(imageContainer);
+            editor.appendChild(plotBlock);
+        }
+
+        function generatePlot(plotBlock) {
+            const latex = plotBlock.querySelector('input').value;
+            const imageContainer = plotBlock.querySelector('.plot-image-container');
+            
+            fetch('/plot', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ latex: latex })
             })
             .then(response => response.json())
             .then(data => {
-                if (data.result) {
-                    mq.latex(`\\boxed{${data.result}}`);
+                if (data.image) {
+                    imageContainer.innerHTML = `<img src="data:image/png;base64,${data.image}" class="plot-image">`;
+                } else {
+                    showError(data.error || 'Failed to generate plot');
                 }
-            });
+            })
+            .catch(error => showError('Plot generation failed'));
         }
     </script>
 </body>

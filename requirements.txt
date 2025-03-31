@@ -1,3 +1,6 @@
 flask
 sympy
 python-dotenv
+matplotlib
+numpy
+pillow
