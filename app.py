@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('Agg')  # Set non-interactive backend
+matplotlib.use('Agg')
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import matplotlib.pyplot as plt
 from flask import Flask, render_template, request, jsonify, send_file

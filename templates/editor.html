@@ -141,6 +141,63 @@
             align-items: center;
             margin-bottom: 1rem;
         }
+
+        .plot-controls {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .plot-container {
+            position: relative;
+            overflow: hidden;
+            resize: both;
+            min-height: 300px;
+            min-width: 400px;
+            background: var(--code-bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
+
+        .search-highlight {
+            background-color: #ffff00;
+            color: #000000;
+        }
+        
+        .search-highlight-active {
+            background-color: #ff9900;
+            color: #000000;
+        }
+        
+        .cm-search-highlight {
+            background-color: #ffff00 !important;
+            color: #000000 !important;
+        }
+        
+        .cm-search-highlight-active {
+            background-color: #ff9900 !important;
+            color: #000000 !important;
+        }
+        
+        #searchControls button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        
+        #searchControls button:hover {
+            opacity: 0.8;
+        }
+        
+        #searchControls input {
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            border: 1px solid rgba(255,255,255,0.3);
+        }
     </style>
 </head>
 <body>
@@ -167,6 +224,445 @@
 
     <script>
         const MQ = MathQuill.getInterface(2);
+
+        let currentMatchIndex = 0;
+        let matches = [];
+        let searchTerm = '';
+
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'f') {
+                e.preventDefault();
+                searchInDocument();
+            }
+            if (e.ctrlKey && e.key === 'r') {
+                e.preventDefault();
+                replaceInDocument();
+            }
+        });
+
+        function searchInDocument() {
+            clearHighlights();
+            searchTerm = prompt('Enter search term:');
+            if (!searchTerm) return;
+            
+            findAllMatches(searchTerm);
+            
+            if (matches.length > 0) {
+                highlightMatches();
+                focusMatch(0);    
+                showSearchControls(matches.length);
+            } else {
+                showError(`No matches found for "${searchTerm}"`);
+            }
+        }
+
+        function findAllMatches(term) {
+            matches = [];
+            const editor = document.getElementById('editor');
+            
+            const textNodes = [];
+            const walker = document.createTreeWalker(
+                editor, 
+                NodeFilter.SHOW_TEXT,
+                { acceptNode: node => node.textContent.includes(term) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT }
+            );
+            
+            let node;
+            while (node = walker.nextNode()) {
+                if (isInCodeMirrorOrMathQuill(node)) continue;
+                
+                const content = node.textContent;
+                let index = content.indexOf(term);
+                
+                while (index !== -1) {
+                    matches.push({
+                        node: node,
+                        startOffset: index,
+                        endOffset: index + term.length
+                    });
+                    index = content.indexOf(term, index + 1);
+                }
+            }
+            
+            document.querySelectorAll('.CodeMirror').forEach((cmElement, editorIndex) => {
+                const cm = cmElement.CodeMirror;
+                const content = cm.getValue();
+                let index = content.indexOf(term);
+                let lineIndex = 0;
+                
+                while (index !== -1) {
+                    const before = content.substring(0, index);
+                    const linesBefore = before.split('\n');
+                    const line = linesBefore.length - 1;
+                    const ch = linesBefore[linesBefore.length - 1].length;
+                    
+                    matches.push({
+                        type: 'codeMirror',
+                        editor: cm,
+                        editorIndex: editorIndex,
+                        line: line,
+                        ch: ch,
+                        length: term.length
+                    });
+                    
+                    index = content.indexOf(term, index + 1);
+                }
+            });
+            
+            return matches;
+        }
+
+        function isInCodeMirrorOrMathQuill(node) {
+            let parent = node.parentNode;
+            while (parent) {
+                if (parent.classList && 
+                    (parent.classList.contains('CodeMirror') || 
+                    parent.classList.contains('mq-editable-field'))) {
+                    return true;
+                }
+                parent = parent.parentNode;
+            }
+            return false;
+        }
+
+        function highlightMatches() {
+            matches.forEach((match, index) => {
+                if (!match.type) {
+                    const range = document.createRange();
+                    range.setStart(match.node, match.startOffset);
+                    range.setEnd(match.node, match.endOffset);
+                    
+                    const span = document.createElement('span');
+                    span.className = 'search-highlight';
+                    span.dataset.matchIndex = index;
+                    span.style.backgroundColor = '#ffff00';
+                    span.style.color = '#000000';
+                    
+                    range.surroundContents(span);
+                    
+                    match.highlightSpan = span;
+                } else if (match.type === 'codeMirror') {
+                    match.marker = match.editor.markText(
+                        {line: match.line, ch: match.ch},
+                        {line: match.line, ch: match.ch + match.length},
+                        {className: 'cm-search-highlight'}
+                    );
+                }
+            });
+            
+            if (!document.getElementById('search-highlight-style')) {
+                const style = document.createElement('style');
+                style.id = 'search-highlight-style';
+                style.textContent = `
+                    .cm-search-highlight {
+                        background-color: #ffff00 !important;
+                        color: #000000 !important;
+                    }
+                    .cm-search-highlight-active {
+                        background-color: #ff9900 !important;
+                        color: #000000 !important;
+                    }
+                    .search-highlight {
+                        background-color: #ffff00;
+                        color: #000000;
+                    }
+                    .search-highlight-active {
+                        background-color: #ff9900;
+                        color: #000000;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+
+        function clearHighlights() {
+            document.querySelectorAll('.search-highlight').forEach(span => {
+                const parent = span.parentNode;
+                parent.replaceChild(document.createTextNode(span.textContent), span);
+                parent.normalize(); 
+            });
+            
+            matches.forEach(match => {
+                if (match.type === 'codeMirror' && match.marker) {
+                    match.marker.clear();
+                }
+            });
+            
+            hideSearchControls();
+            
+            matches = [];
+            currentMatchIndex = 0;
+        }
+
+        function focusMatch(index) {
+            if (index < 0) index = matches.length - 1;
+            if (index >= matches.length) index = 0;
+            
+            currentMatchIndex = index;
+            
+            document.querySelectorAll('.search-highlight-active').forEach(el => {
+                el.classList.remove('search-highlight-active');
+            });
+            
+            document.querySelectorAll('.cm-search-highlight-active').forEach(el => {
+                el.classList.remove('cm-search-highlight-active');
+            });
+            
+            const match = matches[index];
+            
+            if (!match.type) {
+                match.highlightSpan.classList.add('search-highlight-active');
+                
+                match.highlightSpan.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            } else if (match.type === 'codeMirror') {
+                if (match.activeMarker) match.activeMarker.clear();
+                
+                match.activeMarker = match.editor.markText(
+                    {line: match.line, ch: match.ch},
+                    {line: match.line, ch: match.ch + match.length},
+                    {className: 'cm-search-highlight-active'}
+                );
+                
+                match.editor.scrollIntoView({
+                    from: {line: match.line, ch: match.ch},
+                    to: {line: match.line, ch: match.ch + match.length}
+                }, 50);
+            }
+            
+            document.getElementById('matchCounter').textContent = `${index + 1} of ${matches.length}`;
+        }
+
+        function showSearchControls(matchCount) {
+            let controls = document.getElementById('searchControls');
+            
+            if (!controls) {
+                controls = document.createElement('div');
+                controls.id = 'searchControls';
+                controls.style.position = 'fixed';
+                controls.style.top = '70px';
+                controls.style.right = '20px';
+                controls.style.backgroundColor = 'var(--secondary-color)';
+                controls.style.padding = '10px';
+                controls.style.borderRadius = '4px';
+                controls.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+                controls.style.zIndex = '1000';
+                controls.style.display = 'flex';
+                controls.style.flexDirection = 'column';
+                controls.style.gap = '8px';
+                
+                const navDiv = document.createElement('div');
+                navDiv.style.display = 'flex';
+                navDiv.style.alignItems = 'center';
+                navDiv.style.gap = '8px';
+                
+                const prevBtn = document.createElement('button');
+                prevBtn.textContent = '←';
+                prevBtn.onclick = () => focusMatch(currentMatchIndex - 1);
+                
+                const nextBtn = document.createElement('button');
+                nextBtn.textContent = '→';
+                nextBtn.onclick = () => focusMatch(currentMatchIndex + 1);
+                
+                const counter = document.createElement('span');
+                counter.id = 'matchCounter';
+                counter.textContent = `1 of ${matchCount}`;
+                counter.style.margin = '0 10px';
+                
+                navDiv.appendChild(prevBtn);
+                navDiv.appendChild(counter);
+                navDiv.appendChild(nextBtn);
+                
+                const replaceDiv = document.createElement('div');
+                replaceDiv.style.display = 'flex';
+                replaceDiv.style.gap = '8px';
+                
+                const replaceInput = document.createElement('input');
+                replaceInput.id = 'replaceInput';
+                replaceInput.type = 'text';
+                replaceInput.placeholder = 'Replace with...';
+                replaceInput.style.flex = '1';
+                replaceInput.style.padding = '4px 8px';
+                replaceInput.style.borderRadius = '4px';
+                replaceInput.style.border = '1px solid var(--accent-color)';
+                
+                const replaceBtn = document.createElement('button');
+                replaceBtn.textContent = 'Replace';
+                replaceBtn.onclick = () => replaceCurrentMatch();
+                
+                const replaceAllBtn = document.createElement('button');
+                replaceAllBtn.textContent = 'Replace All';
+                replaceAllBtn.onclick = () => replaceAllMatches();
+                
+                replaceDiv.appendChild(replaceInput);
+                replaceDiv.appendChild(replaceBtn);
+                replaceDiv.appendChild(replaceAllBtn);
+                
+                const closeBtn = document.createElement('button');
+                closeBtn.textContent = 'Close';
+                closeBtn.onclick = clearHighlights;
+                closeBtn.style.marginTop = '8px';
+                
+                controls.appendChild(navDiv);
+                controls.appendChild(replaceDiv);
+                controls.appendChild(closeBtn);
+                
+                document.body.appendChild(controls);
+            } else {
+                controls.style.display = 'flex';
+                document.getElementById('matchCounter').textContent = `1 of ${matchCount}`;
+            }
+        }
+
+        function hideSearchControls() {
+            const controls = document.getElementById('searchControls');
+            if (controls) {
+                controls.style.display = 'none';
+            }
+        }
+
+        function replaceCurrentMatch() {
+            if (matches.length === 0 || currentMatchIndex >= matches.length) return;
+            
+            const replacementText = document.getElementById('replaceInput').value;
+            const match = matches[currentMatchIndex];
+            
+            if (!match.type) {
+                match.highlightSpan.textContent = replacementText;
+            } else if (match.type === 'codeMirror') {
+                match.editor.replaceRange(
+                    replacementText,
+                    {line: match.line, ch: match.ch},
+                    {line: match.line, ch: match.ch + match.length}
+                );
+            }
+            
+            clearHighlights();
+            findAllMatches(searchTerm);
+            
+            if (matches.length > 0) {
+                highlightMatches();
+                focusMatch(Math.min(currentMatchIndex, matches.length - 1));
+                showSearchControls(matches.length);
+            } else {
+                hideSearchControls();
+            }
+        }
+
+        function replaceAllMatches() {
+            const replacementText = document.getElementById('replaceInput').value;
+            
+            const codeMirrorEdits = new Map();
+            
+            [...matches].reverse().forEach(match => {
+                if (!match.type) { 
+                    match.highlightSpan.textContent = replacementText;
+                } else if (match.type === 'codeMirror') {
+                    if (!codeMirrorEdits.has(match.editor)) {
+                        codeMirrorEdits.set(match.editor, []);
+                    }
+                    
+                    codeMirrorEdits.get(match.editor).push({
+                        from: {line: match.line, ch: match.ch},
+                        to: {line: match.line, ch: match.ch + match.length},
+                        text: replacementText
+                    });
+                }
+            });
+            
+            codeMirrorEdits.forEach((edits, editor) => {
+                editor.operation(() => {
+                    edits.sort((a, b) => {
+                        if (a.from.line !== b.from.line) return b.from.line - a.from.line;
+                        return b.from.ch - a.from.ch;
+                    });
+                    
+                    edits.forEach(edit => {
+                        editor.replaceRange(edit.text, edit.from, edit.to);
+                    });
+                });
+            });
+            
+            clearHighlights();
+            showError(`Replaced ${matches.length} occurrences of "${searchTerm}" with "${replacementText}"`);
+        }
+
+        function replaceInDocument() {
+            clearHighlights();
+            
+            searchTerm = prompt('Enter search term:');
+            if (!searchTerm) return;
+            
+            findAllMatches(searchTerm);
+            
+            if (matches.length === 0) {
+                showError(`No matches found for "${searchTerm}"`);
+                return;
+            }
+            
+            const replacementText = prompt('Enter replacement text:');
+            if (replacementText === null) return;
+            
+            const replaceChoice = confirm(
+                `Found ${matches.length} matches for "${searchTerm}"\n` +
+                `Click OK to replace all at once, or Cancel to replace one by one.`
+            );
+            
+            if (replaceChoice) {
+                replaceAllMatchesDirectly(replacementText);
+            } else {
+                highlightMatches();
+                focusMatch(0);
+                showSearchControls(matches.length);
+                
+                document.getElementById('replaceInput').value = replacementText;
+            }
+        }
+
+        function replaceAllMatchesDirectly(replacementText) {
+            const codeMirrorEdits = new Map();
+            const matchCount = matches.length;
+            
+            [...matches].reverse().forEach(match => {
+                if (!match.type) { 
+                    const range = document.createRange();
+                    range.setStart(match.node, match.startOffset);
+                    range.setEnd(match.node, match.endOffset);
+                    range.deleteContents();
+                    range.insertNode(document.createTextNode(replacementText));
+                } else if (match.type === 'codeMirror') {
+                    if (!codeMirrorEdits.has(match.editor)) {
+                        codeMirrorEdits.set(match.editor, []);
+                    }
+                    
+                    codeMirrorEdits.get(match.editor).push({
+                        from: {line: match.line, ch: match.ch},
+                        to: {line: match.line, ch: match.ch + match.length},
+                        text: replacementText
+                    });
+                }
+            });
+            
+            codeMirrorEdits.forEach((edits, editor) => {
+                editor.operation(() => {
+                    edits.sort((a, b) => {
+                        if (a.from.line !== b.from.line) return b.from.line - a.from.line;
+                        return b.from.ch - a.from.ch;
+                    });
+                    
+                    edits.forEach(edit => {
+                        editor.replaceRange(edit.text, edit.from, edit.to);
+                    });
+                });
+            });
+            
+            showError(`Replaced ${matchCount} occurrences of "${searchTerm}" with "${replacementText}"`);
+            
+            matches = [];
+            currentMatchIndex = 0;
+        }
 
         function adjustFontSize(value) {
             document.getElementById('editor').style.fontSize = value + 'px';
