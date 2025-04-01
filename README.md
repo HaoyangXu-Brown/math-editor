@@ -44,6 +44,8 @@ python app.py
 | Run Python Code       | Click `Run` button  |
 | Generate Graph        | Click `Plot` button |
 | Adjust Text Size      | Use slider 📏     |
+| Search Keywords       | Press `Ctrl + F`   |
+| Replace Keywords      | Press `Ctrl + R`   |
 
 ## 🛠️ Tech Stack
 
